@@ -1,0 +1,7 @@
+target/
+*.class
+*.jar
+*.DS_Store
+__pycache__/
+*.pyc
+KafkaEngine/Data/
