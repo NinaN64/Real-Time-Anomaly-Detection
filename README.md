@@ -12,3 +12,4 @@ java -jar target/kafka-streams-engine-1.0-SNAPSHOT.jar
 # 4. Run Anomaly Detection (new terminal)
 cd AnomalyDetection
 python3 ConsumerApp.py
+# Real-Time-Anomaly-Detection
