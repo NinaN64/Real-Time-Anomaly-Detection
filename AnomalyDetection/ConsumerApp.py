@@ -9,17 +9,17 @@ from detectors import load_detectors
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s"
+    format="%(asctime)s  %(levelname)-7s  %(message)s",
+    datefmt="%H:%M:%S"
 )
-log = logging.getLogger("ConsumerApp")
+log = logging.getLogger("anomaly")
 
 
 def main():
-    log.info("Starting AnomalyDetection pipeline")
-    log.info("SBERT model:      %s", config.SBERT_MODEL)
-    log.info("Store size:       %d", config.EMBEDDING_STORE_SIZE)
-    log.info("Trigger every:    %d documents", config.TRIGGER_N)
-    log.info("Active detectors: %s", config.ACTIVE_DETECTORS)
+    log.info(
+        "starting up  model=%s  detectors=%s  trigger=%d",
+        config.SBERT_MODEL, config.ACTIVE_DETECTORS, config.TRIGGER_N
+    )
 
     vectorizer = Vectorizer()
     store      = EmbeddingStore()
@@ -27,7 +27,7 @@ def main():
     detectors  = load_detectors(config.ACTIVE_DETECTORS)
 
     trigger_buffer  = []
-    reference_frozen: np.ndarray = np.empty((0,))  # locked baseline after warm-up
+    reference_frozen: np.ndarray = np.empty((0,))
     category_counts: dict = {}
 
     def handle_batch(batch: dict) -> None:
@@ -37,14 +37,18 @@ def main():
             if len(docs) < 10:
                 return
             current = np.stack(docs)
-            log.info("Trigger fired on %d documents", len(current))
+            log.info("── trigger: %d docs", len(current))
             for detector in detectors:
                 alert = detector.update(current, reference_frozen)
                 if alert:
                     log.warning(
-                        "DRIFT ALERT | detector=%s | score=%.4f | window=[%d, %d]",
-                        alert["detector"], alert["score"],
-                        batch.get("windowStart", 0), batch.get("windowEnd", 0)
+                        "\n  ╔══════════════════════════════════════╗"
+                        "\n  ║  DRIFT DETECTED                      ║"
+                        "\n  ║  detector : %-26s║"
+                        "\n  ║  score    : %-26.4f║"
+                        "\n  ║  threshold: %-26.4f║"
+                        "\n  ╚══════════════════════════════════════╝",
+                        alert["detector"], alert["score"], alert["threshold"]
                     )
                     publisher.publish(alert, batch)
 
@@ -70,14 +74,14 @@ def main():
                 trigger_buffer.append(vec)
 
         if not store.is_ready():
-            if new_embeddings.shape[0] > 0:
-                log.info("Warming up... (%d/%d embeddings)",
+            if store.total_seen % 25 == 0:
+                log.info("warming up  %d / %d",
                          store.total_seen, config.MIN_EMBEDDINGS_BEFORE_DETECTION)
             return
 
         if reference_frozen.shape[0] == 0:
             reference_frozen = store.get_reference()
-            log.info("Reference window frozen: %d embeddings", len(reference_frozen))
+            log.info("\n  reference window ready — %d embeddings, detection starting\n", len(reference_frozen))
 
         while len(trigger_buffer) >= config.TRIGGER_N:
             current_docs = trigger_buffer[:config.TRIGGER_N]

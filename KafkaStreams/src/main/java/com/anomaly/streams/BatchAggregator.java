@@ -28,9 +28,8 @@ public class BatchAggregator {
 
             String rawText = node.has("text") ? node.get("text").asText() : "";
             String cleaned = preprocessor.clean(rawText);
-            List<String> tokens = preprocessor.tokenize(cleaned);
 
-            if (tokens.isEmpty())
+            if (cleaned.isBlank())
                 return aggregate;
 
             DocumentBatch.ProcessedDocument doc = new DocumentBatch.ProcessedDocument();
@@ -39,7 +38,6 @@ public class BatchAggregator {
             doc.setSourceCategory(node.has("sourceCategory") ? node.get("sourceCategory").asText() : key);
             doc.setSequenceNumber(node.has("sequenceNumber") ? node.get("sequenceNumber").asLong() : -1);
             doc.setCleanedText(cleaned);
-            doc.setTokens(tokens);
 
             aggregate.add(doc);
         } catch (Exception e) {

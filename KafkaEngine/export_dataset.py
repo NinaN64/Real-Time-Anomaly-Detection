@@ -6,7 +6,7 @@ from sklearn.datasets import fetch_20newsgroups
 
 
 def export(output_path: str, shuffle: bool = True, seed: int = 42) -> None:
-    print("Fetching 20 Newsgroups dataset (this may take a moment)...")
+    print("Fetching 20 Newsgroups dataset...")
 
     dataset = fetch_20newsgroups(
         subset="all",

@@ -11,7 +11,7 @@ log = logging.getLogger("vectorizer")
 class Vectorizer:
 
     def __init__(self, model_name: str = config.SBERT_MODEL):
-        log.info("Loading SBERT model: %s", model_name)
+        log.info("loading %s", model_name)
         self.model = SentenceTransformer(model_name)
         
         modules = list(self.model.children())
@@ -19,7 +19,7 @@ class Vectorizer:
             self.model = SentenceTransformer(modules=modules[:-1])
             
         self.embedding_dim = self.model.get_sentence_embedding_dimension()
-        log.info("Model loaded. Embedding dimension: %d", self.embedding_dim)
+        log.info("ready  dim=%d", self.embedding_dim)
 
     def embed_batch(self, batch: dict, start_idx: int = 0) -> np.ndarray:
         texts = [

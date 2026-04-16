@@ -24,28 +24,20 @@ class MMDDetector(BaseDetector):
         return "mmd"
 
     def _calibrate(self, reference: np.ndarray) -> None:
-        n = len(reference)
-        null_scores = []
-        for _ in range(config.MMD_CALIBRATION_PERMUTATIONS):
-            idx = np.random.permutation(n)
-            a = reference[idx[: n // 2]]
-            b = reference[idx[n // 2 :]]
-            null_scores.append(
-                self._mmd_rbf(
-                    self._sample(a, self.sample_size),
-                    self._sample(b, self.sample_size),
-                )
-            )
+        n   = len(reference)
+        idx = np.random.permutation(n)
+        a   = reference[idx[: n // 2]]
+        b   = reference[idx[n // 2 :]]
 
-        null_score = float(np.median(null_scores))
-        self.threshold = max(null_score * config.MMD_THRESHOLD_MULTIPLIER, config.MMD_THRESHOLD)
+        null_score = self._mmd_rbf(
+            self._sample(a, self.sample_size),
+            self._sample(b, self.sample_size),
+        )
+        self.threshold = max(null_score * 5, config.MMD_THRESHOLD)
         self._calibrated = True
         log.info(
-            "MMD threshold calibrated from reference: %.4f "
-            "(median null=%.4f × %d over %d permutations)",
+            "MMD threshold calibrated from reference: %.4f (null score=%.4f × 5)",
             self.threshold, null_score,
-            config.MMD_THRESHOLD_MULTIPLIER,
-            config.MMD_CALIBRATION_PERMUTATIONS,
         )
 
     def update(self, current: np.ndarray, reference: np.ndarray) -> Optional[dict]:
@@ -60,10 +52,9 @@ class MMDDetector(BaseDetector):
             y = self._sample(reference, self.sample_size)
 
             score = self._mmd_rbf(x, y)
-            log.info("MMD score: %.4f (threshold: %.4f)", score, self.threshold)
+            log.info("mmd  score=%.4f  threshold=%.4f", score, self.threshold)
 
             if score > self.threshold:
-                log.info("MMD drift detected! score=%.4f", score)
                 return {
                     "detector":    self.name,
                     "score":       float(score),

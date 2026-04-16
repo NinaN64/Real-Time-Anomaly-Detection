@@ -11,15 +11,15 @@ public class NewsDocument {
     private String sourceCategory;
     private long sequenceNumber;
 
-    // ground truth — only read by the evaluation module, never by detectors
     private boolean driftLabel;
     private String driftType;
     private Long driftStartTs;
 
-    public NewsDocument() {}
+    public NewsDocument() {
+    }
 
     public NewsDocument(String docId, long timestamp, String text,
-                        String sourceCategory, long sequenceNumber) {
+            String sourceCategory, long sequenceNumber) {
         this.docId = docId;
         this.timestamp = timestamp;
         this.text = text;
@@ -30,33 +30,73 @@ public class NewsDocument {
         this.driftStartTs = null;
     }
 
-    public String getDocId() { return docId; }
-    public void setDocId(String docId) { this.docId = docId; }
+    public String getDocId() {
+        return docId;
+    }
 
-    public long getTimestamp() { return timestamp; }
-    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+    public void setDocId(String docId) {
+        this.docId = docId;
+    }
 
-    public String getText() { return text; }
-    public void setText(String text) { this.text = text; }
+    public long getTimestamp() {
+        return timestamp;
+    }
 
-    public String getSourceCategory() { return sourceCategory; }
-    public void setSourceCategory(String sourceCategory) { this.sourceCategory = sourceCategory; }
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
 
-    public long getSequenceNumber() { return sequenceNumber; }
-    public void setSequenceNumber(long sequenceNumber) { this.sequenceNumber = sequenceNumber; }
+    public String getText() {
+        return text;
+    }
 
-    public boolean isDriftLabel() { return driftLabel; }
-    public void setDriftLabel(boolean driftLabel) { this.driftLabel = driftLabel; }
+    public void setText(String text) {
+        this.text = text;
+    }
 
-    public String getDriftType() { return driftType; }
-    public void setDriftType(String driftType) { this.driftType = driftType; }
+    public String getSourceCategory() {
+        return sourceCategory;
+    }
 
-    public Long getDriftStartTs() { return driftStartTs; }
-    public void setDriftStartTs(Long driftStartTs) { this.driftStartTs = driftStartTs; }
+    public void setSourceCategory(String sourceCategory) {
+        this.sourceCategory = sourceCategory;
+    }
+
+    public long getSequenceNumber() {
+        return sequenceNumber;
+    }
+
+    public void setSequenceNumber(long sequenceNumber) {
+        this.sequenceNumber = sequenceNumber;
+    }
+
+    public boolean isDriftLabel() {
+        return driftLabel;
+    }
+
+    public void setDriftLabel(boolean driftLabel) {
+        this.driftLabel = driftLabel;
+    }
+
+    public String getDriftType() {
+        return driftType;
+    }
+
+    public void setDriftType(String driftType) {
+        this.driftType = driftType;
+    }
+
+    public Long getDriftStartTs() {
+        return driftStartTs;
+    }
+
+    public void setDriftStartTs(Long driftStartTs) {
+        this.driftStartTs = driftStartTs;
+    }
 
     @Override
     public String toString() {
         return "NewsDocument{docId='" + docId + "', category='" + sourceCategory +
-               "', drift=" + driftLabel + ", seq=" + sequenceNumber + "}";
+                "', drift=" + driftLabel + ", seq=" + sequenceNumber + "}";
     }
 }

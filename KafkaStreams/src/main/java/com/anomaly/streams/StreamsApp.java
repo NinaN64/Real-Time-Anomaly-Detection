@@ -25,21 +25,22 @@ public class StreamsApp {
         try (InputStream in = StreamsApp.class
                 .getClassLoader()
                 .getResourceAsStream("streams.properties")) {
-            if (in == null) throw new RuntimeException("streams.properties not found on classpath");
+            if (in == null)
+                throw new RuntimeException("streams.properties not found on classpath");
             appProps.load(in);
         }
 
         Properties streamsProps = new Properties();
         streamsProps.put(StreamsConfig.APPLICATION_ID_CONFIG,
-                         appProps.getProperty("application.id", "anomaly-streams-v1"));
+                appProps.getProperty("application.id", "anomaly-streams-v1"));
         streamsProps.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG,
-                         appProps.getProperty("bootstrap.servers", "localhost:9092"));
+                appProps.getProperty("bootstrap.servers", "localhost:9092"));
         streamsProps.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         streamsProps.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         streamsProps.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG,
-                         appProps.getProperty("num.stream.threads", "6"));
+                appProps.getProperty("num.stream.threads", "6"));
         streamsProps.put(StreamsConfig.STATE_DIR_CONFIG,
-                         appProps.getProperty("state.dir", "/tmp/kafka-streams/anomaly"));
+                appProps.getProperty("state.dir", "/tmp/kafka-streams/anomaly"));
 
         ensureTopicsExist(appProps);
 
@@ -48,7 +49,7 @@ public class StreamsApp {
 
         streams.setUncaughtExceptionHandler((thread, throwable) -> {
             log.error("Uncaught exception in stream thread {}: {}",
-                      thread.getName(), throwable.getMessage(), throwable);
+                    thread.getName(), throwable.getMessage(), throwable);
         });
 
         CountDownLatch latch = new CountDownLatch(1);
@@ -70,7 +71,7 @@ public class StreamsApp {
     }
 
     private static void ensureTopicsExist(Properties appProps) {
-        String bootstrap  = appProps.getProperty("bootstrap.servers", "localhost:9092");
+        String bootstrap = appProps.getProperty("bootstrap.servers", "localhost:9092");
         String slidingOut = appProps.getProperty("topic.output.sliding", "preprocessed-batches-sliding");
 
         Properties adminProps = new Properties();
@@ -82,7 +83,7 @@ public class StreamsApp {
 
             log.info("Output topic ensured: {}", slidingOut);
         } catch (Exception e) {
-            log.debug("Topic creation skipped (may already exist): {}", e.getMessage());
+            log.debug("Topic creation skipped: {}", e.getMessage());
         }
     }
 }

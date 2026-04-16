@@ -5,10 +5,6 @@ from typing import Callable
 from confluent_kafka import Consumer, KafkaException
 import config
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s"
-)
 log = logging.getLogger("consumer")
 
 
@@ -28,7 +24,7 @@ def build_consumer() -> Consumer:
 
 def run(batch_handler: Callable[[dict], None]) -> None:
     consumer = build_consumer()
-    log.info("Consumer started. Waiting for batches...")
+
 
     try:
         while True:
@@ -41,9 +37,9 @@ def run(batch_handler: Callable[[dict], None]) -> None:
             try:
                 batch = json.loads(msg.value().decode("utf-8"))
                 doc_count = batch.get("documentCount", 0)
-                log.info(
-                    "Received batch | window=%s | docs=%d | start=%d",
-                    batch.get("windowType"), doc_count, batch.get("windowStart", 0)
+                log.debug(
+                    "batch | docs=%d | start=%d",
+                    doc_count, batch.get("windowStart", 0)
                 )
                 if doc_count > 0:
                     batch_handler(batch)

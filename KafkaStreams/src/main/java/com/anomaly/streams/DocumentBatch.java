@@ -52,7 +52,6 @@ public class DocumentBatch {
         private String sourceCategory;
         private long sequenceNumber;
         private String cleanedText;
-        private List<String> tokens;
 
         public ProcessedDocument() {}
 
@@ -70,8 +69,5 @@ public class DocumentBatch {
 
         public String getCleanedText() { return cleanedText; }
         public void setCleanedText(String cleanedText) { this.cleanedText = cleanedText; }
-
-        public List<String> getTokens() { return tokens; }
-        public void setTokens(List<String> tokens) { this.tokens = tokens; }
     }
 }

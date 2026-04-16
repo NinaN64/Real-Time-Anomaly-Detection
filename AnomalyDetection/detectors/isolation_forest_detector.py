@@ -15,11 +15,10 @@ class IsolationForestDetector(BaseDetector):
 
     def __init__(self,
                  contamination: float = config.IF_CONTAMINATION,
-                 n_estimators: int = config.IF_N_ESTIMATORS,
-                 threshold: float = config.IF_THRESHOLD):
+                 n_estimators: int = config.IF_N_ESTIMATORS):
         self.contamination = contamination
         self.n_estimators = n_estimators
-        self.threshold = threshold
+        self.threshold: float = config.IF_THRESHOLD
         self._model: Optional[IsolationForest] = None
         self._last_ref_size = 0
 
@@ -38,7 +37,7 @@ class IsolationForestDetector(BaseDetector):
             scores = self._model.score_samples(current)
             mean_score = float(scores.mean())
 
-            log.debug("IF mean score: %.4f (threshold: %.4f)", mean_score, self.threshold)
+            log.info("IF mean score: %.4f (threshold: %.4f)", mean_score, self.threshold)
 
             if mean_score < self.threshold:
                 log.info("Isolation Forest drift detected! mean_score=%.4f", mean_score)
@@ -53,7 +52,6 @@ class IsolationForestDetector(BaseDetector):
         return None
 
     def _fit(self, reference: np.ndarray) -> None:
-        log.debug("Fitting Isolation Forest on %d reference embeddings", len(reference))
         self._model = IsolationForest(
             n_estimators=self.n_estimators,
             contamination=self.contamination,
@@ -62,3 +60,8 @@ class IsolationForestDetector(BaseDetector):
         )
         self._model.fit(reference)
         self._last_ref_size = len(reference)
+
+        ref_scores = self._model.score_samples(reference)
+        self.threshold = float(ref_scores.mean() - 3 * ref_scores.std())
+        log.info("IF threshold calibrated from reference: %.4f (ref mean=%.4f, std=%.4f)",
+                 self.threshold, ref_scores.mean(), ref_scores.std())
