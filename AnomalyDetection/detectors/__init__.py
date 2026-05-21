@@ -1,9 +1,11 @@
 from detectors.mmd_detector import MMDDetector
 from detectors.isolation_forest_detector import IsolationForestDetector
+from detectors.padd_detector import PADDDetector
 
 REGISTRY = {
     "mmd":               MMDDetector,
     "isolation_forest":  IsolationForestDetector,
+    "padd":              PADDDetector,
 }
 
 
