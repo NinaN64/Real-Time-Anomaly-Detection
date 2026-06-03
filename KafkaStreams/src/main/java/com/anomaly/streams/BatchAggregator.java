@@ -38,6 +38,9 @@ public class BatchAggregator {
             doc.setSourceCategory(node.has("sourceCategory") ? node.get("sourceCategory").asText() : key);
             doc.setSequenceNumber(node.has("sequenceNumber") ? node.get("sequenceNumber").asLong() : -1);
             doc.setCleanedText(cleaned);
+            doc.setDriftLabel(node.has("driftLabel") && node.get("driftLabel").asBoolean());
+            doc.setDriftType(node.has("driftType") && !node.get("driftType").isNull() ? node.get("driftType").asText() : null);
+            doc.setDriftStartTs(node.has("driftStartTs") && !node.get("driftStartTs").isNull() ? node.get("driftStartTs").asLong() : null);
 
             aggregate.add(doc);
         } catch (Exception e) {

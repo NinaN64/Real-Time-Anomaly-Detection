@@ -1,0 +1,271 @@
+import argparse
+import csv
+import json
+import os
+import time
+from datetime import datetime
+from confluent_kafka import Consumer, KafkaException
+import config
+
+SUPPORTED_DETECTORS = {"mmd", "padd"}
+
+IDLE_TIMEOUT_SECS = 30
+
+
+def log(msg: str) -> None:
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def print_separator(char: str = "─", width: int = 60) -> None:
+    print(char * width, flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--detector",      required=True,
+                        choices=list(SUPPORTED_DETECTORS),
+                        help="Detector to evaluate: mmd or padd")
+    parser.add_argument("--trigger-n",     type=int, required=True)
+    parser.add_argument("--window-type",   required=True)
+    parser.add_argument("--source-topic",  required=True)
+    parser.add_argument("--match-window",  type=int, default=200)
+    parser.add_argument("--cooldown",      type=int, default=200)
+    parser.add_argument("--output",        default="evaluation_results.csv")
+    parser.add_argument("--idle-timeout",  type=int, default=IDLE_TIMEOUT_SECS,
+                        help="Seconds of Kafka silence before experiment is declared finished")
+    args = parser.parse_args()
+
+    if args.detector not in SUPPORTED_DETECTORS:
+        print(f"[ERROR] Unsupported detector '{args.detector}'. Choose from: {SUPPORTED_DETECTORS}")
+        return
+
+    c = Consumer({
+        "bootstrap.servers": config.BOOTSTRAP_SERVERS,
+        "group.id": f"evaluator-group-{int(time.time())}",
+        "auto.offset.reset": "earliest",
+        "enable.auto.commit": False,
+    })
+    c.subscribe([args.source_topic, config.ALERT_TOPIC])
+
+    drift_events = []
+    active_drift = None
+    last_drift_start_seq = -1
+
+    total_baseline_docs = 0
+    fp_count = 0
+
+    in_cooldown = False
+    cooldown_remaining = 0
+
+    ts_to_seq = {}
+
+    batches_seen       = 0
+    total_docs_seen    = 0
+    total_alerts_seen  = 0
+    last_batch_ts      = None
+
+    print_separator("═")
+    log(f"Evaluator started")
+    log(f"  Detector    : {args.detector.upper()}")
+    log(f"  Window type : {args.window_type}")
+    log(f"  Trigger-N   : {args.trigger_n}")
+    log(f"  Source topic: {args.source_topic}")
+    log(f"  Alert topic : {config.ALERT_TOPIC}")
+    log(f"  Idle timeout: {args.idle_timeout}s  (auto-finish when no messages arrive)")
+    log(f"  Output file : {args.output}")
+    print_separator("═")
+    print(flush=True)
+
+    last_msg_time = time.time()
+
+    try:
+        while True:
+            elapsed_idle = time.time() - last_msg_time
+            if elapsed_idle >= args.idle_timeout:
+                print_separator()
+                log(f"No messages for {args.idle_timeout}s — experiment considered finished.")
+                print_separator()
+                break
+
+            msg = c.poll(1.0)
+            if msg is None:
+                remaining = args.idle_timeout - int(time.time() - last_msg_time)
+                if remaining <= 10 and remaining > 0:
+                    log(f"  [idle] No messages — finishing in {remaining}s unless more arrive...")
+                continue
+            if msg.error():
+                continue
+
+            last_msg_time = time.time()
+
+            val   = json.loads(msg.value().decode("utf-8"))
+            topic = msg.topic()
+
+            if topic == args.source_topic:
+                docs = val.get("documents", [])
+                if not docs:
+                    continue
+
+                batches_seen     += 1
+                total_docs_seen  += len(docs)
+                last_batch_ts     = val.get("windowEnd")
+
+                max_seq    = max(d.get("sequenceNumber", 0) for d in docs)
+                window_end = val.get("windowEnd")
+                if window_end:
+                    ts_to_seq[window_end] = max_seq
+
+                drift_docs_in_batch = 0
+                for d in docs:
+                    seq       = d.get("sequenceNumber")
+                    is_drift  = d.get("driftLabel", False)
+                    drift_start = d.get("driftStartTs")
+                    d_type    = d.get("driftType")
+                    ts        = d.get("timestamp")
+
+                    if is_drift:
+                        drift_docs_in_batch += 1
+                        in_cooldown = False
+                        cooldown_remaining = 0
+                        if drift_start != last_drift_start_seq:
+                            active_drift = {
+                                "start_seq":    drift_start,
+                                "type":         d_type,
+                                "start_ts":     ts,
+                                "matched":      False,
+                                "match_deadline": drift_start + args.match_window,
+                            }
+                            drift_events.append(active_drift)
+                            last_drift_start_seq = drift_start
+                            log(f"  [DRIFT START] type={d_type}  start_seq={drift_start}  "
+                                f"deadline≤seq {active_drift['match_deadline']}")
+                    else:
+                        if active_drift:
+                            active_drift = None
+                            in_cooldown = True
+                            cooldown_remaining = args.cooldown
+                            log(f"  [DRIFT END]   cooldown={args.cooldown} docs")
+
+                        if in_cooldown:
+                            cooldown_remaining -= 1
+                            if cooldown_remaining <= 0:
+                                in_cooldown = False
+                        else:
+                            total_baseline_docs += 1
+
+                if batches_seen % 50 == 0:
+                    matched_so_far = sum(1 for e in drift_events if e["matched"])
+                    log(f"  [progress] batches={batches_seen}  docs={total_docs_seen}  "
+                        f"drift_events={len(drift_events)}  matched={matched_so_far}  "
+                        f"alerts={total_alerts_seen}  FP={fp_count}")
+
+            elif topic == config.ALERT_TOPIC:
+                if val.get("detector") != args.detector:
+                    continue
+
+                total_alerts_seen += 1
+                alert_ts     = val.get("detected_at")
+                w_end_ts     = val.get("windowEnd")
+                window_end_seq = ts_to_seq.get(w_end_ts)
+
+                if window_end_seq is None:
+                    log(f"  [ALERT]  seq mapping missing for windowEnd={w_end_ts} — skipped")
+                    continue
+
+                matched_any = False
+                for event in drift_events:
+                    if not event["matched"] and event["start_seq"] <= window_end_seq <= event["match_deadline"]:
+                        event["matched"] = True
+                        event["latency_docs"] = window_end_seq - event["start_seq"]
+                        event["latency_ms"]   = alert_ts - event["start_ts"]
+                        matched_any = True
+                        log(f"  [ALERT ✓] detector={args.detector.upper()}  "
+                            f"drift_type={event['type']}  "
+                            f"latency={event['latency_docs']} docs / {event['latency_ms']:.0f} ms")
+                        break
+
+                if not matched_any:
+                    if not in_cooldown and not active_drift:
+                        fp_count += 1
+                        log(f"  [ALERT ✗] FALSE POSITIVE #{fp_count}  detector={args.detector.upper()}  "
+                            f"window_end_seq={window_end_seq}")
+
+    except KeyboardInterrupt:
+        log("Stopped manually (Ctrl+C).")
+    finally:
+        c.close()
+
+        print(flush=True)
+        print_separator("═")
+        log("EXPERIMENT SUMMARY")
+        print_separator("═")
+        log(f"  Detector        : {args.detector.upper()}")
+        log(f"  Batches seen    : {batches_seen}")
+        log(f"  Docs seen       : {total_docs_seen}")
+        log(f"  Baseline docs   : {total_baseline_docs}")
+        log(f"  Drift events    : {len(drift_events)}")
+        log(f"  Alerts received : {total_alerts_seen}")
+        log(f"  False positives : {fp_count}")
+        print_separator()
+
+        results = {}
+        for event in drift_events:
+            t = event["type"]
+            if t not in results:
+                results[t] = {"tp": 0, "fn": 0, "lat_docs": [], "lat_ms": []}
+            if event["matched"]:
+                results[t]["tp"] += 1
+                results[t]["lat_docs"].append(event["latency_docs"])
+                results[t]["lat_ms"].append(event["latency_ms"])
+            else:
+                results[t]["fn"] += 1
+
+        far = fp_count / max(1, total_baseline_docs)
+
+        if not results:
+            log("  No drift events recorded — no metrics to write.")
+        else:
+            for t, m in results.items():
+                tp   = m["tp"]
+                fn   = m["fn"]
+                fp   = fp_count
+                precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+                recall    = tp / (tp + fn) if (tp + fn) > 0 else 0
+                f1        = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+                avg_lat_docs = sum(m["lat_docs"]) / len(m["lat_docs"]) if m["lat_docs"] else float("nan")
+                avg_lat_ms   = sum(m["lat_ms"])   / len(m["lat_ms"])   if m["lat_ms"]   else float("nan")
+
+                log(f"  [{t.upper()}]  P={precision:.4f}  R={recall:.4f}  "
+                    f"F1={f1:.4f}  LatDocs={avg_lat_docs:.1f}  LatMs={avg_lat_ms:.1f}  FAR={far:.6f}")
+
+        print_separator("═")
+
+        file_exists = os.path.isfile(args.output)
+        with open(args.output, "a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    "Detector", "WindowType", "TriggerN", "DriftType",
+                    "Precision", "Recall", "F1", "LatencyDocs", "LatencyMs", "FAR",
+                ])
+            for t, m in results.items():
+                tp   = m["tp"]
+                fn   = m["fn"]
+                fp   = fp_count
+                precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+                recall    = tp / (tp + fn) if (tp + fn) > 0 else 0
+                f1        = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+                avg_lat_docs = sum(m["lat_docs"]) / len(m["lat_docs"]) if m["lat_docs"] else float("nan")
+                avg_lat_ms   = sum(m["lat_ms"])   / len(m["lat_ms"])   if m["lat_ms"]   else float("nan")
+                writer.writerow([
+                    args.detector, args.window_type, args.trigger_n, t,
+                    f"{precision:.4f}", f"{recall:.4f}", f"{f1:.4f}",
+                    f"{avg_lat_docs:.2f}", f"{avg_lat_ms:.2f}", f"{far:.6f}",
+                ])
+
+        log(f"Results appended to {args.output}")
+        print_separator("═")
+
+
+if __name__ == "__main__":
+    main()
