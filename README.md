@@ -15,8 +15,17 @@ python AnomalyDetection/ConsumerApp.py
 
 # 5. Run Evaluation (new terminal)
 # This will match alerts with ground truth and append results to a CSV.
+
+# To evaluate the MMD detector:
 python AnomalyDetection/evaluator.py `
   --detector mmd `
+  --trigger-n 100 `
+  --window-type sliding `
+  --source-topic preprocessed-batches-sliding
+
+# To evaluate the PADD detector:
+python AnomalyDetection/evaluator.py `
+  --detector padd `
   --trigger-n 100 `
   --window-type sliding `
   --source-topic preprocessed-batches-sliding
