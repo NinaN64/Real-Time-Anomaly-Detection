@@ -52,6 +52,9 @@ public class DocumentBatch {
         private String sourceCategory;
         private long sequenceNumber;
         private String cleanedText;
+        private boolean driftLabel;
+        private String driftType;
+        private Long driftStartTs;
 
         public ProcessedDocument() {}
 
@@ -69,5 +72,14 @@ public class DocumentBatch {
 
         public String getCleanedText() { return cleanedText; }
         public void setCleanedText(String cleanedText) { this.cleanedText = cleanedText; }
+
+        public boolean isDriftLabel() { return driftLabel; }
+        public void setDriftLabel(boolean driftLabel) { this.driftLabel = driftLabel; }
+
+        public String getDriftType() { return driftType; }
+        public void setDriftType(String driftType) { this.driftType = driftType; }
+
+        public Long getDriftStartTs() { return driftStartTs; }
+        public void setDriftStartTs(Long driftStartTs) { this.driftStartTs = driftStartTs; }
     }
 }

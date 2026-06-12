@@ -1,0 +1,8 @@
+Detector,WindowType,TriggerN,DriftType,Precision,Recall,F1,LatencyDocs,LatencyMs,FAR
+
+mmd,sliding,100,sudden,0.3333,1.0000,0.5000,140.00,34361.00,0.002030
+mmd,sliding,100,gradual,0.3333,1.0000,0.5000,146.00,18975.00,0.002030
+mmd,sliding,100,recurring,0.0000,0.0000,0.0000,nan,nan,0.002030
+padd,sliding,100,sudden,1.0000,1.0000,1.0000,140.00,34394.00,0.000000
+padd,sliding,100,gradual,1.0000,1.0000,1.0000,146.00,18995.00,0.000000
+padd,sliding,100,recurring,0.0000,0.0000,0.0000,nan,nan,0.000000

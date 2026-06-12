@@ -19,24 +19,27 @@ class PADDDetector(BaseDetector):
                  alpha: float = config.PADD_ALPHA,
                  theta: float = config.PADD_THRESHOLD,
                  replications: int = config.PADD_REPLICATIONS,
-                 sample_size: int = config.PADD_SAMPLE_SIZE):
+                 sample_size: int = config.PADD_SAMPLE_SIZE,
+                 seed: int = 42):
         self.hidden_dim = hidden_dim
         self.alpha = alpha
         self.theta = theta
         self.replications = replications
         self.sample_size = sample_size
+        self.seed = seed
 
         self._weights: Optional[np.ndarray] = None
         self._bias: Optional[np.ndarray] = None
+        self._rng = np.random.default_rng(seed)
 
     @property
     def name(self) -> str:
         return "padd"
 
     def _init_network(self, input_dim: int):
-        self._weights = np.random.normal(0, 0.1, (input_dim, self.hidden_dim))
-        self._bias = np.random.normal(0, 0.1, (self.hidden_dim,))
-        log.info("PADD initialized: input_dim=%d, hidden_dim=%d", input_dim, self.hidden_dim)
+        self._weights = self._rng.normal(0, 0.1, (input_dim, self.hidden_dim))
+        self._bias = self._rng.normal(0, 0.1, (self.hidden_dim,))
+        log.info("PADD initialized: input_dim=%d, hidden_dim=%d, seed=%d", input_dim, self.hidden_dim, self.seed)
 
     def _get_activations(self, x: np.ndarray) -> np.ndarray:
         z = np.dot(x, self._weights) + self._bias
@@ -81,5 +84,5 @@ class PADDDetector(BaseDetector):
     def _sample(self, arr: np.ndarray, n: int) -> np.ndarray:
         if len(arr) <= n:
             return arr
-        idx = np.random.choice(len(arr), n, replace=False)
+        idx = self._rng.choice(len(arr), n, replace=False)
         return arr[idx]
