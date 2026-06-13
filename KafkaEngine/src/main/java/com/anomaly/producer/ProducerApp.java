@@ -12,6 +12,13 @@ public class ProducerApp {
 
     public static void main(String[] args) throws Exception {
 
+        String dataset = "newsgroups";
+        for (int i = 0; i < args.length - 1; i++) {
+            if (args[i].equals("--dataset")) {
+                dataset = args[i + 1];
+            }
+        }
+
         Properties props = new Properties();
         try (InputStream in = ProducerApp.class
                 .getClassLoader()
@@ -22,13 +29,44 @@ public class ProducerApp {
             props.load(in);
         }
 
-        String datasetPath = props.getProperty("dataset.path", "Data/20newsgroups.jsonl");
-        long   rateMs      = Long.parseLong(props.getProperty("producer.rate.ms", "100"));
-        int    gradualWin  = Integer.parseInt(props.getProperty("drift.gradual.window", "200"));
-        int    recurPeriod = Integer.parseInt(props.getProperty("drift.recurring.period", "150"));
+        long rateMs = Long.parseLong(props.getProperty("producer.rate.ms", "100"));
+        int gradualWin = Integer.parseInt(props.getProperty("drift.gradual.window", "200"));
+        int recurPeriod = Integer.parseInt(props.getProperty("drift.recurring.period", "150"));
 
-        DatasetLoader loader   = new DatasetLoader(datasetPath);
-        DriftInjector injector = new DriftInjector(loader, "sci.space", gradualWin, recurPeriod);
+        String datasetPath;
+        String initialCategory;
+        String suddenTarget;
+        String gradualTarget;
+        String recurringTarget;
+
+        switch (dataset) {
+            case "wikipedia":
+                datasetPath = "Data/wikipedia.jsonl";
+                initialCategory = "wikipedia_science";
+                suddenTarget = "wikipedia_politics";
+                gradualTarget = "wikipedia_sports";
+                recurringTarget = "wikipedia_politics";
+                break;
+            case "arxiv":
+                datasetPath = "Data/arxiv.jsonl";
+                initialCategory = "arxiv_math";
+                suddenTarget = "arxiv_cs";
+                gradualTarget = "arxiv_physics";
+                recurringTarget = "arxiv_cs";
+                break;
+            default:
+                datasetPath = "Data/20newsgroups.jsonl";
+                initialCategory = "sci.space";
+                suddenTarget = "talk.politics.guns";
+                gradualTarget = "sci.med";
+                recurringTarget = "comp.graphics";
+                break;
+        }
+
+        log.info("Dataset: {}  Path: {}", dataset, datasetPath);
+
+        DatasetLoader loader = new DatasetLoader(datasetPath);
+        DriftInjector injector = new DriftInjector(loader, initialCategory, gradualWin, recurPeriod);
 
         try (DocumentProducer producer = new DocumentProducer(props, loader, injector)) {
 
@@ -37,16 +75,20 @@ public class ProducerApp {
                 producer.stop();
             }));
 
+            final String sudden = suddenTarget;
+            final String gradual = gradualTarget;
+            final String recurring = recurringTarget;
+
             Thread driftScheduler = new Thread(() -> {
                 try {
                     Thread.sleep(rateMs * 1000);
-                    injector.triggerSudden("talk.politics.guns", 1000);
+                    injector.triggerSudden(sudden, 1000);
 
                     Thread.sleep(rateMs * 1000);
-                    injector.triggerGradual("sci.med", 2000);
+                    injector.triggerGradual(gradual, 2000);
 
                     Thread.sleep(rateMs * (gradualWin + 200L));
-                    injector.triggerRecurring("comp.graphics", 3200);
+                    injector.triggerRecurring(recurring, 3200);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
