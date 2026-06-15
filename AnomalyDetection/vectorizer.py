@@ -8,6 +8,7 @@ import config
 log = logging.getLogger("vectorizer")
 
 
+# implementation of text vectorization
 class Vectorizer:
 
     def __init__(self, model_name: str = config.SBERT_MODEL):

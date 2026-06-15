@@ -10,6 +10,7 @@ import config
 log = logging.getLogger("detector.mmd")
 
 
+# implementation of maximum mean discrepancy detector
 class MMDDetector(BaseDetector):
 
     def __init__(self,

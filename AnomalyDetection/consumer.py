@@ -22,6 +22,7 @@ def build_consumer() -> Consumer:
     return consumer
 
 
+# implementation of consumer run loop
 def run(batch_handler: Callable[[dict], None]) -> None:
     consumer = build_consumer()
 

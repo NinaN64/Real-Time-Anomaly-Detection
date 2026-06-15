@@ -4,6 +4,7 @@ from typing import Optional
 import numpy as np
 
 
+# interface for drift detectors
 class BaseDetector(ABC):
 
     @property

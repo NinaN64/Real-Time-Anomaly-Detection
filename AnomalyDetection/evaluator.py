@@ -34,7 +34,7 @@ def print_separator(char: str = "─", width: int = 60) -> None:
 
 def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
                    logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps):
-    # Sort unique documents by sequence number
+    # sort docs chronologically
     sorted_seqs = sorted(unique_docs.keys())
 
     drift_events = []
@@ -46,6 +46,7 @@ def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
 
     seq_states = {}
 
+    # implementation of state tracking
     for seq in sorted_seqs:
         d = unique_docs[seq]
         is_drift = d["is_drift"]
@@ -96,7 +97,7 @@ def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
         else:
             seq_states[seq] = "BASELINE"
 
-    # Match alerts chronologically
+    # implementation of alert matching
     sorted_alerts = sorted(unique_alerts.values(), key=lambda a: a.get("windowEnd", 0))
     fp_count = 0
 
@@ -104,6 +105,7 @@ def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
         alert_ts = alert.get("detected_at")
         w_end_ts = alert.get("windowEnd")
         doc_count = alert.get("docCount")
+        
         window_end_seq = ts_to_seq.get((w_end_ts, doc_count))
         if window_end_seq is None:
             window_end_seq = ts_to_seq.get(w_end_ts)
@@ -113,6 +115,7 @@ def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
 
         matched_any = False
         matched_event = None
+        
         for event in drift_events:
             if not event["matched"] and event["start_seq"] <= window_end_seq <= event["match_deadline"]:
                 event["matched"] = True
@@ -129,14 +132,12 @@ def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
                     f"latency={matched_event['latency_docs']} docs / {matched_event['latency_ms']:.0f} ms")
                 logged_alerts.add(w_end_ts)
         else:
-            # Check state at window_end_seq
             state = "BASELINE"
             applicable_seqs = [s for s in sorted_seqs if s <= window_end_seq]
             if applicable_seqs:
                 state = seq_states[applicable_seqs[-1]]
 
             if state == "BASELINE":
-                # False positive
                 if w_end_ts not in logged_fps:
                     log(f"  [ALERT ✗] FALSE POSITIVE #{fp_count + 1}  detector={args.detector.upper()}  "
                         f"window_end_seq={window_end_seq}")
