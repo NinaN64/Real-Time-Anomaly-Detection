@@ -36,14 +36,6 @@ def compute_d1_d2_r(drift_events, alert_seqs):
     """
     Compute D1, D2, R drift detection error measures.
     Reference: Komorniczak et al. (2022), Knowledge-Based Systems.
-
-    D1 (closest drift): mean distance from each detection to its nearest drift start.
-         Penalises false positives and poorly-timed detections.
-    D2 (closest detection): mean distance from each drift to its nearest detection.
-         Penalises missed or late detections.
-    R  (drift-to-detection ratio): |n_drifts/n_detections - 1|, scaled so optimum = 0.
-         Penalises both over- and under-detection.
-
     All three return float("nan") when the required inputs are absent.
     """
     drift_seqs = [e["start_seq"] for e in drift_events]
@@ -78,16 +70,6 @@ def compute_d1_d2_r(drift_events, alert_seqs):
 
 
 def build_drift_events(unique_docs, args, logged_drift_starts, logged_drift_ends):
-    """
-    Walk the document stream once and return:
-      - drift_events: list of drift event dicts (matched=False, no latency yet)
-      - seq_states:   {seq -> "DRIFT"|"COOLDOWN"|"BASELINE"}
-      - total_baseline_docs: int
-      - sorted_seqs: sorted list of all sequence numbers seen
-
-    Matches are NOT set here — that is done separately in match_alerts so that
-    match state is never lost across re-calls.
-    """
     sorted_seqs = sorted(unique_docs.keys())
 
     drift_events = []
@@ -159,10 +141,7 @@ def match_alerts(drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs
 
     Key design: matches are stored inside unique_alerts under the key
     '_matched_event_start' so they survive across re-calls. An alert
-    that was already matched in a previous call keeps its match; we
-    never un-match it.
-
-    Returns fp_count (int) and alert_seqs (list of resolved seq numbers).
+    that was already matched in a previous call keeps its match.
     """
     sorted_alerts = sorted(unique_alerts.values(), key=lambda a: a.get("windowEnd", 0))
     fp_count = 0
@@ -246,10 +225,6 @@ def match_alerts(drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs
 
 def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
                    logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps):
-    """
-    Top-level evaluation call. Returns (drift_events, total_baseline_docs, fp_count, alert_seqs).
-    Safe to call repeatedly as new docs/alerts arrive — matches are never lost.
-    """
     drift_events, seq_states, total_baseline_docs, sorted_seqs = build_drift_events(
         unique_docs, args, logged_drift_starts, logged_drift_ends
     )

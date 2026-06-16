@@ -55,6 +55,11 @@ java -jar KafkaStreams/target/kafka-streams-engine-1.0-SNAPSHOT.jar
 .venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --trigger-n 200
 ```
 
+**Noise Warmup:**
+```powershell
+.venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --noise-warmup
+```
+
 ### 5. Run Evaluation (new terminal)
 
 * **To evaluate the MMD detector:**

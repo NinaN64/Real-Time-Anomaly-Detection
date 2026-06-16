@@ -1,5 +1,6 @@
 import argparse
 import logging
+import random
 import numpy as np
 import config
 from consumer import run as run_consumer
@@ -7,6 +8,7 @@ from vectorizer import Vectorizer
 from embedding_store import EmbeddingStore
 from alert_publisher import AlertPublisher
 from detectors import load_detectors
+from nltk.corpus import words as nltk_words
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,6 +16,16 @@ logging.basicConfig(
     datefmt="%H:%M:%S"
 )
 log = logging.getLogger("anomaly")
+
+
+def generate_noise_documents(n: int, seed: int, words_per_doc: int = 20) -> list[str]:
+    """Generate n synthetic noise documents from random English words."""
+    rng = random.Random(seed)
+    vocabulary = nltk_words.words()
+    return [
+        " ".join(rng.choices(vocabulary, k=words_per_doc))
+        for _ in range(n)
+    ]
 
 
 def main():
@@ -24,18 +36,45 @@ def main():
         default=config.TRIGGER_N,
         help=f"Number of embeddings to accumulate before triggering detectors (default: {config.TRIGGER_N})"
     )
+    parser.add_argument(
+        "--noise-warmup",
+        action="store_true",
+        default=config.NOISE_WARMUP,
+        help="Pre-fill reference window with synthetic noise documents instead of real stream documents"
+    )
     args = parser.parse_args()
     trigger_n = args.trigger_n
+    noise_warmup = args.noise_warmup
 
     log.info(
-        "starting up  model=%s  detectors=%s  trigger=%d",
-        config.SBERT_MODEL, config.ACTIVE_DETECTORS, trigger_n
+        "starting up  model=%s  detectors=%s  trigger=%d  noise_warmup=%s",
+        config.SBERT_MODEL, config.ACTIVE_DETECTORS, trigger_n, noise_warmup
     )
 
     vectorizer = Vectorizer()
     store      = EmbeddingStore()
     publisher  = AlertPublisher()
     detectors  = load_detectors(config.ACTIVE_DETECTORS)
+
+    # pre-fill reference window with synthetic noise documents embedded through SBERT
+    if noise_warmup:
+        log.info("generating %d synthetic noise documents for warm-up...",
+                 config.MIN_EMBEDDINGS_BEFORE_DETECTION)
+        noise_docs = generate_noise_documents(
+            n=config.MIN_EMBEDDINGS_BEFORE_DETECTION,
+            seed=config.NOISE_WARMUP_SEED
+        )
+        noise_embeddings = vectorizer.model.encode(
+            noise_docs,
+            show_progress_bar=False,
+            convert_to_numpy=True
+        ).astype(np.float32)
+        for vec in noise_embeddings:
+            store.add(np.expand_dims(vec, 0))
+        log.info(
+            "noise warm-up complete — %d synthetic embeddings loaded as reference",
+            config.MIN_EMBEDDINGS_BEFORE_DETECTION
+        )
 
     trigger_buffer  = []
     reference_frozen: np.ndarray = np.empty((0,))

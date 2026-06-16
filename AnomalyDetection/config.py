@@ -28,3 +28,6 @@ PADD_ALPHA        = 0.01  # Significance level for t-test
 PADD_THRESHOLD    = 0.1   # Fraction of tests rejecting null
 PADD_REPLICATIONS = 20    # Number of replications
 PADD_SAMPLE_SIZE  = 50    # Size of each sample in replication
+
+NOISE_WARMUP = False
+NOISE_WARMUP_SEED = 42
