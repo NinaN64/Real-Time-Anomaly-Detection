@@ -6,11 +6,11 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
+import org.apache.kafka.streams.errors.StreamsUncaughtExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
@@ -47,9 +47,9 @@ public class StreamsApp {
         Topology topology = new StreamTopology(appProps).build();
         KafkaStreams streams = new KafkaStreams(topology, streamsProps);
 
-        streams.setUncaughtExceptionHandler((thread, throwable) -> {
-            log.error("Uncaught exception in stream thread {}: {}",
-                    thread.getName(), throwable.getMessage(), throwable);
+        streams.setUncaughtExceptionHandler(throwable -> {
+            log.error("Uncaught exception in stream thread: {}", throwable.getMessage(), throwable);
+            return StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.REPLACE_THREAD;
         });
 
         CountDownLatch latch = new CountDownLatch(1);

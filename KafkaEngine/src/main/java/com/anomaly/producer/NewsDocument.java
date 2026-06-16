@@ -2,6 +2,7 @@ package com.anomaly.producer;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+// Data transfer object for Kafka news streams
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class NewsDocument {
 

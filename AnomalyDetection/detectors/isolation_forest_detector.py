@@ -11,6 +11,7 @@ import config
 log = logging.getLogger("detector.isolation_forest")
 
 
+# implementation of isolation forest detector
 class IsolationForestDetector(BaseDetector):
 
     def __init__(self,

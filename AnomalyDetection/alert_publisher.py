@@ -7,6 +7,7 @@ import config
 log = logging.getLogger("alert_publisher")
 
 
+# implementation of alert publishing
 class AlertPublisher:
 
     def __init__(self):

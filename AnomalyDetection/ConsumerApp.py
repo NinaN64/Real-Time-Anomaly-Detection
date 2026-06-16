@@ -1,3 +1,4 @@
+import argparse
 import logging
 import numpy as np
 import config
@@ -16,9 +17,19 @@ log = logging.getLogger("anomaly")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Anomaly Detection Consumer")
+    parser.add_argument(
+        "--trigger-n",
+        type=int,
+        default=config.TRIGGER_N,
+        help=f"Number of embeddings to accumulate before triggering detectors (default: {config.TRIGGER_N})"
+    )
+    args = parser.parse_args()
+    trigger_n = args.trigger_n
+
     log.info(
         "starting up  model=%s  detectors=%s  trigger=%d",
-        config.SBERT_MODEL, config.ACTIVE_DETECTORS, config.TRIGGER_N
+        config.SBERT_MODEL, config.ACTIVE_DETECTORS, trigger_n
     )
 
     vectorizer = Vectorizer()
@@ -33,6 +44,7 @@ def main():
     def handle_batch(batch: dict) -> None:
         nonlocal trigger_buffer, reference_frozen, category_counts
 
+        # implementation of drift evaluation
         def evaluate_trigger(docs: list) -> None:
             if len(docs) < 10:
                 return
@@ -55,37 +67,44 @@ def main():
         documents = batch.get("documents", [])
         docs_total = len(documents)
         category = documents[0].get("sourceCategory", "unknown") if documents else "unknown"
-        
+
+        # ignore duplicate records
         last_doc_count = category_counts.get(category, 0)
-        
+
         if docs_total <= last_doc_count:
             return
 
+        # generate embeddings
         new_embeddings = vectorizer.embed_batch(batch, start_idx=last_doc_count)
         category_counts[category] = docs_total
 
         if new_embeddings.shape[0] == 0:
             return
 
+        # populate store or trigger buffer
         for vec in new_embeddings:
             if not store.is_ready():
                 store.add(np.expand_dims(vec, 0))
             else:
                 trigger_buffer.append(vec)
 
+        # wait for warm-up
         if not store.is_ready():
             if store.total_seen % 25 == 0:
                 log.info("warming up  %d / %d",
                          store.total_seen, config.MIN_EMBEDDINGS_BEFORE_DETECTION)
             return
 
+        # freeze reference window
         if reference_frozen.shape[0] == 0:
             reference_frozen = store.get_reference()
-            log.info("\n  reference window ready — %d embeddings, detection starting\n", len(reference_frozen))
+            log.info("\n  reference window ready — %d embeddings, detection starting\n",
+                     len(reference_frozen))
 
-        while len(trigger_buffer) >= config.TRIGGER_N:
-            current_docs = trigger_buffer[:config.TRIGGER_N]
-            trigger_buffer = trigger_buffer[config.TRIGGER_N:]
+        # slide window evaluation
+        while len(trigger_buffer) >= trigger_n:
+            current_docs = trigger_buffer[:trigger_n]
+            trigger_buffer = trigger_buffer[trigger_n:]
             evaluate_trigger(current_docs)
 
     try:

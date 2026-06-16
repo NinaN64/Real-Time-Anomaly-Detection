@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
+// implementation of concept drift injector
 public class DriftInjector {
 
     private static final Logger log = LoggerFactory.getLogger(DriftInjector.class);
