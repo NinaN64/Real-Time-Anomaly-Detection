@@ -42,8 +42,17 @@ java -jar KafkaStreams/target/kafka-streams-engine-1.0-SNAPSHOT.jar
 ```
 
 ### 4. Run Anomaly Detection (new terminal)
+**N = 100 (default):**
 ```powershell
 .venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py
+```
+**N = 50:**
+```powershell
+.venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --trigger-n 50
+```
+**N = 200:**
+```powershell
+.venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --trigger-n 200
 ```
 
 ### 5. Run Evaluation (new terminal)
