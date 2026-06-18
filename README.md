@@ -56,9 +56,11 @@ java -jar KafkaStreams/target/kafka-streams-engine-1.0-SNAPSHOT.jar
 ```
 
 **Noise Warmup:**
-```powershell
+```powershell 
 .venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --noise-warmup
 ```
+
+.venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --trigger-n 50 --noise-warmup
 
 ### 5. Run Evaluation (new terminal)
 
