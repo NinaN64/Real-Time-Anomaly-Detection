@@ -36,11 +36,14 @@ java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset wikipedia
 java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset arxiv
 ```
 
+java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset wikipedia --seed 0 --subset-size 2000
+
+
 ### 3. Run Kafka Streams (new terminal)
 ```powershell
 java -jar KafkaStreams/target/kafka-streams-engine-1.0-SNAPSHOT.jar
 ```
-
+ 
 ### 4. Run Anomaly Detection (new terminal)
 **N = 100 (default):**
 ```powershell
@@ -60,25 +63,27 @@ java -jar KafkaStreams/target/kafka-streams-engine-1.0-SNAPSHOT.jar
 .venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --noise-warmup
 ```
 
-.venv\Scripts\python.exe AnomalyDetection/ConsumerApp.py --trigger-n 50 --noise-warmup
-
 ### 5. Run Evaluation (new terminal)
 
 * **To evaluate the MMD detector:**
   ```powershell
   .venv\Scripts\python.exe AnomalyDetection/evaluator.py `
     --detector mmd `
-    --trigger-n 100 `
+    --trigger-n 200 `
     --window-type sliding `
-    --source-topic preprocessed-batches-sliding
+    --source-topic preprocessed-batches-sliding `
+    --dataset newsgroups
   ```
 
 * **To evaluate the PADD detector:**
   ```powershell
   .venv\Scripts\python.exe AnomalyDetection/evaluator.py `
     --detector padd `
-    --trigger-n 100 `
+    --trigger-n 200 `
     --window-type sliding `
-    --source-topic preprocessed-batches-sliding
+    --source-topic preprocessed-batches-sliding `
+    --dataset newsgroups
   ```
 
+### 6. Analyze results
+python analyze_results.py --input evaluation_results.csv --output stats_summary.csv --by-dataset

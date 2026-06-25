@@ -45,12 +45,21 @@ public class DocumentProducer implements AutoCloseable {
         log.info("DocumentProducer ready. Topic: {}", topic);
     }
 
-    public void stream(long rateMs) {
-        log.info("Streaming started. Rate: {}ms per message.", rateMs);
+    public void stream(long rateMs, long maxSeq) {
+        if (maxSeq > 0) {
+            log.info("Streaming started. Rate: {}ms per message. Max seq: {}", rateMs, maxSeq);
+        } else {
+            log.info("Streaming started. Rate: {}ms per message. No seq limit.", rateMs);
+        }
 
         while (running) {
             try {
                 long seq = sequenceCounter.getAndIncrement();
+
+                if (maxSeq > 0 && seq >= maxSeq) {
+                    log.info("Reached max seq {} — stopping producer.", maxSeq);
+                    break;
+                }
 
                 String category = driftInjector.resolveCategory(seq);
                 String text = loader.nextDocument(category);

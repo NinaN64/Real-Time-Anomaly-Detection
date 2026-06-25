@@ -82,10 +82,10 @@ def build_drift_events(unique_docs, args, logged_drift_starts, logged_drift_ends
 
     for seq in sorted_seqs:
         d = unique_docs[seq]
-        is_drift   = d["is_drift"]
+        is_drift    = d["is_drift"]
         drift_start = d["drift_start"]
-        d_type     = d["d_type"]
-        ts         = d["ts"]
+        d_type      = d["d_type"]
+        ts          = d["ts"]
 
         if is_drift:
             in_cooldown = False
@@ -135,20 +135,14 @@ def build_drift_events(unique_docs, args, logged_drift_starts, logged_drift_ends
 
 
 def match_alerts(drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs,
-                 args, logged_alerts, logged_fps):
+                 args, logged_alerts, logged_fps, confirmed_fps, confirmed_tp_windows):
     """
     Match alerts to drift events.
-
-    Key design: matches are stored inside unique_alerts under the key
-    '_matched_event_start' so they survive across re-calls. An alert
-    that was already matched in a previous call keeps its match.
     """
     sorted_alerts = sorted(unique_alerts.values(), key=lambda a: a.get("windowEnd", 0))
-    fp_count = 0
-    alert_seqs = []
+    alert_seqs_set = set()
 
     # Build a fast lookup: drift start_seq -> event dict
-    # so previously matched events can be restored without re-matching
     event_by_start = {e["start_seq"]: e for e in drift_events}
 
     # First pass: restore previously confirmed matches
@@ -161,26 +155,24 @@ def match_alerts(drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs
 
     # Second pass: attempt to match unmatched alerts to unmatched events
     for alert in sorted_alerts:
-        if alert.get("_matched_event_start") is not None:
-            # already matched in a previous call — resolve seq for D1/D2
-            w_end_ts  = alert.get("windowEnd")
-            doc_count = alert.get("docCount")
-            seq = ts_to_seq.get((w_end_ts, doc_count)) or ts_to_seq.get(w_end_ts)
-            if seq is not None:
-                alert_seqs.append(seq)
-            continue
-
-        alert_ts  = alert.get("detected_at")
         w_end_ts  = alert.get("windowEnd")
         doc_count = alert.get("docCount")
+        alert_ts  = alert.get("detected_at")
 
         window_end_seq = ts_to_seq.get((w_end_ts, doc_count))
         if window_end_seq is None:
             window_end_seq = ts_to_seq.get(w_end_ts)
-        if window_end_seq is None:
+
+        if alert.get("_matched_event_start") is not None:
+            if window_end_seq is not None:
+                alert_seqs_set.add(window_end_seq)
+            if w_end_ts in confirmed_fps:
+                confirmed_fps.discard(w_end_ts)
+            confirmed_tp_windows.add(w_end_ts)
             continue
 
-        alert_seqs.append(window_end_seq)
+        if window_end_seq is None:
+            continue
 
         matched_any   = False
         matched_event = None
@@ -193,13 +185,15 @@ def match_alerts(drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs
                 event["latency_ms"]   = alert_ts - event["start_ts"]
                 matched_any   = True
                 matched_event = event
-                # Persist match into the alert dict so future calls see it
                 alert["_matched_event_start"] = event["start_seq"]
                 alert["_latency_docs"]        = event["latency_docs"]
                 alert["_latency_ms"]          = event["latency_ms"]
                 break
 
         if matched_any:
+            alert_seqs_set.add(window_end_seq)
+            confirmed_tp_windows.add(w_end_ts)
+            confirmed_fps.discard(w_end_ts)
             if w_end_ts not in logged_alerts:
                 log(f"  [ALERT ✓] detector={args.detector.upper()}  "
                     f"drift_type={matched_event['type']}  "
@@ -207,32 +201,34 @@ def match_alerts(drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs
                     f"{matched_event['latency_ms']:.0f} ms")
                 logged_alerts.add(w_end_ts)
         else:
-            state = "BASELINE"
-            applicable_seqs = [s for s in sorted_seqs if s <= window_end_seq]
-            if applicable_seqs:
-                state = seq_states.get(applicable_seqs[-1], "BASELINE")
+            if w_end_ts not in confirmed_tp_windows:
+                state = "BASELINE"
+                applicable_seqs = [s for s in sorted_seqs if s <= window_end_seq]
+                if applicable_seqs:
+                    state = seq_states.get(applicable_seqs[-1], "BASELINE")
 
-            if state == "BASELINE":
-                if w_end_ts not in logged_fps:
-                    log(f"  [ALERT ✗] FALSE POSITIVE #{fp_count + 1}  "
-                        f"detector={args.detector.upper()}  "
-                        f"window_end_seq={window_end_seq}")
-                    logged_fps.add(w_end_ts)
-                fp_count += 1
+                if state == "BASELINE":
+                    confirmed_fps.add(w_end_ts)
+                    if w_end_ts not in logged_fps:
+                        log(f"  [ALERT ✗] FALSE POSITIVE #{len(confirmed_fps)}  "
+                            f"detector={args.detector.upper()}  "
+                            f"window_end_seq={window_end_seq}")
+                        logged_fps.add(w_end_ts)
 
-    return fp_count, alert_seqs
+    return list(alert_seqs_set)
 
 
 def run_evaluation(unique_docs, unique_alerts, ts_to_seq, args,
-                   logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps):
+                   logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps,
+                   confirmed_fps, confirmed_tp_windows):
     drift_events, seq_states, total_baseline_docs, sorted_seqs = build_drift_events(
         unique_docs, args, logged_drift_starts, logged_drift_ends
     )
-    fp_count, alert_seqs = match_alerts(
+    alert_seqs = match_alerts(
         drift_events, unique_alerts, ts_to_seq, seq_states, sorted_seqs,
-        args, logged_alerts, logged_fps
+        args, logged_alerts, logged_fps, confirmed_fps, confirmed_tp_windows
     )
-    return drift_events, total_baseline_docs, fp_count, alert_seqs
+    return drift_events, total_baseline_docs, alert_seqs
 
 
 def main():
@@ -250,6 +246,8 @@ def main():
                         help="Seconds of Kafka silence before experiment is declared finished")
     parser.add_argument("--max-batches",   type=int, default=None,
                         help="Optional maximum number of batches to process before finishing")
+    parser.add_argument("--dataset", default="unknown",
+                        help="Dataset name (newsgroups, arxiv, yahoo, agnews)")
     args = parser.parse_args()
 
     if args.detector not in SUPPORTED_DETECTORS:
@@ -274,13 +272,15 @@ def main():
     logged_alerts       = set()
     logged_fps          = set()
 
-    batches_seen       = 0
-    total_docs_seen    = 0
+    confirmed_fps = set()
+    confirmed_tp_windows = set()
+
+    batches_seen        = 0
+    total_docs_seen     = 0
     total_baseline_docs = 0
-    drift_events       = []
-    total_alerts_seen  = 0
-    fp_count           = 0
-    alert_seqs         = []
+    drift_events        = []
+    total_alerts_seen   = 0
+    alert_seqs          = []
 
     print_separator("═")
     log(f"Evaluator started")
@@ -331,10 +331,10 @@ def main():
                     seq = d.get("sequenceNumber")
                     if seq is not None:
                         unique_docs[seq] = {
-                            "is_drift":   d.get("driftLabel", False),
+                            "is_drift":    d.get("driftLabel", False),
                             "drift_start": d.get("driftStartTs"),
-                            "d_type":     d.get("driftType"),
-                            "ts":         d.get("timestamp"),
+                            "d_type":      d.get("driftType"),
+                            "ts":          d.get("timestamp"),
                         }
 
                 window_end = val.get("windowEnd")
@@ -344,9 +344,10 @@ def main():
                     if window_end not in ts_to_seq:
                         ts_to_seq[window_end] = max_seq
 
-                drift_events, total_baseline_docs, fp_count, alert_seqs = run_evaluation(
+                drift_events, total_baseline_docs, alert_seqs = run_evaluation(
                     unique_docs, unique_alerts, ts_to_seq, args,
-                    logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps
+                    logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps,
+                    confirmed_fps, confirmed_tp_windows
                 )
                 total_docs_seen   = len(unique_docs)
                 total_alerts_seen = len(unique_alerts)
@@ -355,11 +356,11 @@ def main():
                     matched_so_far = sum(1 for e in drift_events if e["matched"])
                     log(f"  [progress] batches={batches_seen}  docs={total_docs_seen}  "
                         f"drift_events={len(drift_events)}  matched={matched_so_far}  "
-                        f"alerts={total_alerts_seen}  FP={fp_count}")
+                        f"alerts={total_alerts_seen}  FP={len(confirmed_fps)}")
 
                 if args.max_batches is not None and batches_seen >= args.max_batches:
                     print_separator()
-                    log(f"Processed max batches ({args.max_batches}) — experiment finishing.")
+                    log(f"Processed max batches ({args.max_batches}) — finishing.")
                     print_separator()
                     break
 
@@ -371,9 +372,10 @@ def main():
                 if w_end_ts is not None:
                     unique_alerts[w_end_ts] = val
 
-                drift_events, total_baseline_docs, fp_count, alert_seqs = run_evaluation(
+                drift_events, total_baseline_docs, alert_seqs = run_evaluation(
                     unique_docs, unique_alerts, ts_to_seq, args,
-                    logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps
+                    logged_drift_starts, logged_drift_ends, logged_alerts, logged_fps,
+                    confirmed_fps, confirmed_tp_windows
                 )
                 total_docs_seen   = len(unique_docs)
                 total_alerts_seen = len(unique_alerts)
@@ -382,6 +384,8 @@ def main():
         log("Stopped manually (Ctrl+C).")
     finally:
         c.close()
+
+        fp_count = len(confirmed_fps)
 
         print(flush=True)
         print_separator("═")
@@ -410,7 +414,8 @@ def main():
 
         far = fp_count / max(1, total_baseline_docs)
 
-        d1_global, d2_global, r_global = compute_d1_d2_r(drift_events, alert_seqs)
+        alert_seqs_unique = list(set(alert_seqs))
+        d1_global, d2_global, r_global = compute_d1_d2_r(drift_events, alert_seqs_unique)
 
         def fmt(v):
             return f"{v:.4f}" if v == v else "nan"  # nan != nan
@@ -448,7 +453,7 @@ def main():
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow([
-                    "Detector", "WindowType", "TriggerN", "DriftType",
+                    "Dataset", "Detector", "WindowType", "TriggerN", "DriftType",
                     "Precision", "Recall", "F1", "LatencyDocs", "LatencyMs", "FAR",
                     "D1", "D2", "R",
                 ])
@@ -465,7 +470,7 @@ def main():
                 avg_lat_ms   = (sum(m["lat_ms"]) / len(m["lat_ms"])
                                 if m["lat_ms"] else float("nan"))
                 writer.writerow([
-                    args.detector, args.window_type, args.trigger_n, t,
+                    args.dataset, args.detector, args.window_type, args.trigger_n, t,
                     f"{precision:.4f}", f"{recall:.4f}", f"{f1:.4f}",
                     f"{avg_lat_docs:.2f}", f"{avg_lat_ms:.2f}", f"{far:.6f}",
                     fmt(d1_global), fmt(d2_global), fmt(r_global),

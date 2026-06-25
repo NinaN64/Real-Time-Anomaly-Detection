@@ -1,10 +1,14 @@
+import os
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
+from vectorizer import Vectorizer
 import argparse
 import logging
 import random
 import numpy as np
 import config
 from consumer import run as run_consumer
-from vectorizer import Vectorizer
 from embedding_store import EmbeddingStore
 from alert_publisher import AlertPublisher
 from detectors import load_detectors
