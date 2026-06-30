@@ -1,0 +1,26 @@
+% Table: Cross-dataset F1 comparison (Trigger N = 100)
+% Requires: \usepackage{booktabs}, \usepackage{multirow}
+\begin{table}[htbp]
+  \centering
+  \caption{Mean F1 score ($\pm$ std, $n=10$ seeds) across datasets and
+           drift types for MMD and PADD detectors (Trigger $N=100$).}
+  \label{tab:cross_dataset_f1}
+  \begin{tabular}{llcc}
+    \toprule
+    \textbf{Dataset} & \textbf{Drift Type}
+      & \textbf{MMD F1} & \textbf{PADD F1} \\
+    \midrule
+    \multirow{3}{*}{20 Newsgroups} & Sudden & 0.597 $\pm$ 0.179 & \textbf{0.683 $\pm$ 0.123} \\
+     & Gradual & \textbf{0.597 $\pm$ 0.179} & 0.550 $\pm$ 0.315 \\
+     & Recurring & 0.000 $\pm$ 0.000 & 0.000 $\pm$ 0.000 \\
+    \midrule
+    \multirow{3}{*}{Yahoo Answers} & Sudden & \textbf{0.657 $\pm$ 0.204} & 0.383 $\pm$ 0.431 \\
+     & Gradual & \textbf{0.657 $\pm$ 0.204} & 0.283 $\pm$ 0.385 \\
+     & Recurring & 0.000 $\pm$ 0.000 & 0.000 $\pm$ 0.000 \\
+    \midrule
+    \multirow{3}{*}{AG News} & Sudden & \textbf{0.485 $\pm$ 0.277} & 0.300 $\pm$ 0.483 \\
+     & Gradual & \textbf{0.385 $\pm$ 0.250} & 0.000 $\pm$ 0.000 \\
+     & Recurring & 0.000 $\pm$ 0.000 & 0.000 $\pm$ 0.000 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

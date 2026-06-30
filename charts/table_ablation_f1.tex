@@ -1,0 +1,24 @@
+% Table: Trigger-N ablation F1 (20 Newsgroups)
+% Requires: \usepackage{booktabs}, \usepackage{multirow}
+\begin{table}[htbp]
+  \centering
+  \caption{Mean F1 score ($\pm$ std, $n=10$ seeds) for the Trigger-$N$ ablation
+           study on the 20~Newsgroups dataset.
+           Bold values indicate the better detector per row.}
+  \label{tab:ablation_f1}
+  \begin{tabular}{llcc}
+    \toprule
+    \textbf{Trigger $N$} & \textbf{Drift Type}
+      & \textbf{MMD F1} & \textbf{PADD F1} \\
+    \midrule
+    \multirow{2}{*}{$N=50$} & Sudden & 0.439 $\pm$ 0.144 & \textbf{0.669 $\pm$ 0.350} \\
+     & Gradual & 0.439 $\pm$ 0.144 & \textbf{0.669 $\pm$ 0.350} \\
+    \midrule
+    \multirow{2}{*}{$N=100$} & Sudden & 0.597 $\pm$ 0.179 & \textbf{0.683 $\pm$ 0.123} \\
+     & Gradual & \textbf{0.597 $\pm$ 0.179} & 0.550 $\pm$ 0.315 \\
+    \midrule
+    \multirow{2}{*}{$N=200$} & Sudden & 0.867 $\pm$ 0.322 & \textbf{0.900 $\pm$ 0.316} \\
+     & Gradual & \textbf{0.600 $\pm$ 0.516} & 0.400 $\pm$ 0.516 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

@@ -16,7 +16,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.Collections;
 
-// implementation of dataset file loader
 public class DatasetLoader {
 
     private static final Logger log = LoggerFactory.getLogger(DatasetLoader.class);
@@ -24,7 +23,7 @@ public class DatasetLoader {
     private final Map<String, List<String>> documentsByCategory = new HashMap<>();
     private final Map<String, Integer> cursors = new HashMap<>();
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Random random = new Random(42);
+    private Random random = new Random(42);
 
     public DatasetLoader(String jsonlPath) throws IOException {
         load(jsonlPath);
@@ -38,21 +37,40 @@ public class DatasetLoader {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty()) continue;
+                if (line.isEmpty())
+                    continue;
 
                 JsonNode node = mapper.readTree(line);
                 String text = node.get("text").asText();
                 String category = node.get("category").asText();
 
                 documentsByCategory
-                    .computeIfAbsent(category, k -> new ArrayList<>())
-                    .add(text);
+                        .computeIfAbsent(category, k -> new ArrayList<>())
+                        .add(text);
                 total++;
             }
         }
 
         log.info("Loaded {} documents across {} categories", total, documentsByCategory.size());
         documentsByCategory.forEach((cat, docs) -> log.info("  {}: {} docs", cat, docs.size()));
+    }
+
+    public void subsample(int docsPerBucket, long seed) {
+        random = new Random(seed);
+        log.info("Subsampling: {} docs per bucket, seed={}", docsPerBucket, seed);
+
+        for (Map.Entry<String, List<String>> entry : documentsByCategory.entrySet()) {
+            List<String> docs = entry.getValue();
+            Collections.shuffle(docs, random);
+            if (docs.size() > docsPerBucket) {
+                List<String> sampled = new ArrayList<>(docs.subList(0, docsPerBucket));
+                entry.setValue(sampled);
+                log.info("  {}: {} -> {} docs", entry.getKey(), docs.size(), docsPerBucket);
+            } else {
+                log.info("  {}: {} docs (no trim needed)", entry.getKey(), docs.size());
+            }
+        }
+        cursors.clear();
     }
 
     public String nextDocument(String category) {

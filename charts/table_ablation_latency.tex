@@ -1,0 +1,25 @@
+% Table: Trigger-N ablation detection latency (20 Newsgroups)
+% Requires: \usepackage{booktabs}, \usepackage{multirow}
+\begin{table}[htbp]
+  \centering
+  \caption{Mean detection latency in documents ($\pm$ std) for the
+           Trigger-$N$ ablation on 20~Newsgroups.
+           Dashes indicate no true detections (latency undefined).
+           Bold marks the lower (faster) mean per row.}
+  \label{tab:ablation_latency}
+  \begin{tabular}{llcc}
+    \toprule
+    \textbf{Trigger $N$} & \textbf{Drift Type}
+      & \textbf{MMD Latency} & \textbf{PADD Latency} \\
+    \midrule
+    \multirow{2}{*}{$N=50$} & Sudden & \textbf{168.5 $\pm$ 154.0} & 214.7 $\pm$ 132.9 \\
+     & Gradual & \textbf{109.2 $\pm$ 57.9} & 184.4 $\pm$ 138.2 \\
+    \midrule
+    \multirow{2}{*}{$N=100$} & Sudden & \textbf{179.2 $\pm$ 92.2} & 239.5 $\pm$ 148.4 \\
+     & Gradual & 146.7 $\pm$ 123.9 & \textbf{92.9 $\pm$ 49.0} \\
+    \midrule
+    \multirow{2}{*}{$N=200$} & Sudden & \textbf{266.9 $\pm$ 93.3} & 335.7 $\pm$ 119.4 \\
+     & Gradual & \textbf{227.8 $\pm$ 32.3} & 229.5 $\pm$ 39.4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}

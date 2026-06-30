@@ -110,8 +110,8 @@ public class DriftInjector {
     }
 
     private String resolveRecurring() {
+        boolean onTarget = (recurringCounter / recurringPeriod) % 2 == 0;
         recurringCounter++;
-        boolean onTarget = (recurringCounter / recurringPeriod) % 2 == 1;
         return onTarget ? targetCategory : currentCategory;
     }
 

@@ -19,6 +19,7 @@ class MMDDetector(BaseDetector):
         self.threshold   = threshold
         self.sample_size = sample_size
         self._calibrated = False
+        self._stream_calibrated = False
 
     @property
     def name(self) -> str:
@@ -41,6 +42,24 @@ class MMDDetector(BaseDetector):
             self.threshold, null_score,
         )
 
+    def _recalibrate_from_stream(self, current: np.ndarray, reference: np.ndarray) -> None:
+        """Re-calibrate threshold using first real stream batch against noise reference.
+        Gives a meaningful threshold when reference was built from synthetic noise."""
+        null_score = self._mmd_rbf(
+            self._sample(current, self.sample_size),
+            self._sample(current, self.sample_size),
+        )
+        real_score = self._mmd_rbf(
+            self._sample(current, self.sample_size),
+            self._sample(reference, self.sample_size),
+        )
+        self.threshold = real_score * 1.2
+        self._stream_calibrated = True
+        log.info(
+            "MMD threshold re-calibrated from first stream batch: %.4f (real_score=%.4f × 1.2)",
+            self.threshold, real_score,
+        )
+
     def update(self, current: np.ndarray, reference: np.ndarray) -> Optional[dict]:
         try:
             if len(current) < 10 or len(reference) < 20:
@@ -48,6 +67,10 @@ class MMDDetector(BaseDetector):
 
             if not self._calibrated:
                 self._calibrate(reference)
+
+            if config.NOISE_WARMUP and not self._stream_calibrated:
+                self._recalibrate_from_stream(current, reference)
+                return None
 
             x = self._sample(current, self.sample_size)
             y = self._sample(reference, self.sample_size)

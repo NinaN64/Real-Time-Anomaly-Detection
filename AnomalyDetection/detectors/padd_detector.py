@@ -11,7 +11,6 @@ import config
 log = logging.getLogger("detector.padd")
 
 
-# implementation of projection-based drift detector
 class PADDDetector(BaseDetector):
 
 
