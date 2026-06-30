@@ -1,0 +1,30 @@
+% Table: Cross-dataset detection latency and FAR (Trigger N = 100)
+% Requires: \usepackage{booktabs}, \usepackage{multirow}
+\begin{table}[htbp]
+  \centering
+  \caption{Mean detection latency (documents) and false alarm rate (FAR)
+           ($\pm$ std, $n=10$ seeds) for Trigger $N=100$.
+           Lower latency and lower FAR are better.
+           Dashes indicate no detections (latency undefined).}
+  \label{tab:cross_dataset_lat_far}
+  \begin{tabular}{llcccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Dataset}}
+      & \multirow{2}{*}{\textbf{Drift}}
+      & \multicolumn{2}{c}{\textbf{Latency (docs)}}
+      & \multicolumn{2}{c}{\textbf{FAR}} \\
+    \cmidrule(lr){3-4} \cmidrule(lr){5-6}
+      & & \textbf{MMD} & \textbf{PADD}
+        & \textbf{MMD} & \textbf{PADD} \\
+    \midrule
+    \multirow{2}{*}{20 Newsgroups} & Sudden & \textbf{179.2 $\pm$ 92.2} & 239.5 $\pm$ 148.4 & 0.0014 $\pm$ 0.0008 & \textbf{0.0008 $\pm$ 0.0004} \\
+     & Gradual & 146.7 $\pm$ 123.9 & \textbf{92.9 $\pm$ 49.0} & 0.0014 $\pm$ 0.0008 & \textbf{0.0008 $\pm$ 0.0004} \\
+    \midrule
+    \multirow{2}{*}{Yahoo Answers} & Sudden & \textbf{156.1 $\pm$ 45.2} & 263.2 $\pm$ 101.0 & 0.0011 $\pm$ 0.0008 & \textbf{0.0003 $\pm$ 0.0006} \\
+     & Gradual & 135.6 $\pm$ 104.0 & \textbf{131.8 $\pm$ 98.3} & 0.0011 $\pm$ 0.0008 & \textbf{0.0003 $\pm$ 0.0006} \\
+    \midrule
+    \multirow{2}{*}{AG News} & Sudden & \textbf{168.3 $\pm$ 56.0} & 248.0 $\pm$ 70.1 & 0.0018 $\pm$ 0.0015 & \textbf{0.0000 $\pm$ 0.0000} \\
+     & Gradual & \textbf{75.1 $\pm$ 28.7} & --- $\pm$ --- & 0.0018 $\pm$ 0.0015 & \textbf{0.0000 $\pm$ 0.0000} \\
+    \bottomrule
+  \end{tabular}
+\end{table}

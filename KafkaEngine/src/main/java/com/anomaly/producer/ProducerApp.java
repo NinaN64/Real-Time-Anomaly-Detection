@@ -62,7 +62,7 @@ public class ProducerApp {
                 initialCategory = "sci.space";
                 suddenTarget = "talk.politics.guns";
                 gradualTarget = "sci.med";
-                recurringTarget = "comp.graphics";
+                recurringTarget = "sci.space";
                 break;
         }
 
