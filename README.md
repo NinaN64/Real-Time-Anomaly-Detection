@@ -36,7 +36,7 @@ java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset wikipedia
 java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset arxiv
 ```
 
-java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset yahoo --seed 7 --subset-size 2000
+java -jar KafkaEngine/target/kafka-engine-1.0-SNAPSHOT.jar --dataset newsgroups --seed 7 --subset-size 2000
 
 
 ### 3. Run Kafka Streams (new terminal)
@@ -69,21 +69,21 @@ java -jar KafkaStreams/target/kafka-streams-engine-1.0-SNAPSHOT.jar
   ```powershell
   .venv\Scripts\python.exe AnomalyDetection/evaluator.py `
     --detector mmd `
-    --trigger-n 100 `
+    --trigger-n 200 `
     --window-type sliding `
     --source-topic preprocessed-batches-sliding `
-    --dataset yahoo
+    --dataset newsgroups
   ```
 
 * **To evaluate the PADD detector:**
   ```powershell
   .venv\Scripts\python.exe AnomalyDetection/evaluator.py `
     --detector padd `
-    --trigger-n 100 `
+    --trigger-n 200 `
     --window-type sliding `
     --source-topic preprocessed-batches-sliding `
-    --dataset yahoo
+    --dataset newsgroups
   ```
 
 ### 6. Analyze results
-python analyze_results.py --input evaluation_results.csv --output stats_summary.csv --by-dataset
+python analyze_results.py --input evaluation_results.csv --table51
